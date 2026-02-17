@@ -220,4 +220,4 @@ Any browser that supports ECharts 5 — IE11 excluded (uses `requestAnimationFra
 
 ## License
 
-MIT
+LGPL-3.0-or-later
