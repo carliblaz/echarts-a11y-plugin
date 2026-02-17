@@ -38,22 +38,10 @@ Add this structure somewhere in your page. IDs are configurable (see Options).
 ```html
 <section id="chart-container">
   <div id="chart-wrapper">
-    <!-- ECharts mounts here -->
     <div id="chart" aria-label="Loading chart…"></div>
-
-    <!-- Table view (hidden by default, shown on T key) -->
-    <div id="table-wrapper" role="region" aria-label="Data table view">
-      <div class="table-header">
-        <p>Table view — Press <kbd>T</kbd> or <kbd>Esc</kbd> to return to chart</p>
-        <button id="back-to-chart">← Back to Chart</button>
-      </div>
-      <div id="table-body"></div>
-    </div>
   </div>
 </section>
 
-<!-- Screen-reader live region — place once anywhere in <body> -->
-<div id="sr-live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 ```
 
 ### Required CSS
