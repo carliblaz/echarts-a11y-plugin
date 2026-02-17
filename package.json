@@ -1,0 +1,33 @@
+{
+  "name": "charts-a11y-plugin",
+  "version": "1.0.0",
+  "description": "WCAG 2.1 AA keyboard navigation and accessibility plugin for Apache ECharts",
+  "main": "dist/echarts-a11y-plugin.umd.js",
+  "files": [
+    "dist/",
+    "src/locales/",
+    "README.md"
+  ],
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "npm run clean && webpack --config webpack.config.js",
+    "build:watch": "webpack --config webpack.config.js --watch"
+  },
+  "keywords": [
+    "echarts",
+    "accessibility",
+    "a11y",
+    "wcag",
+    "keyboard",
+    "screen-reader",
+    "aria"
+  ],
+  "license": "LGPL-3.0-or-later",
+  "peerDependencies": {
+    "echarts": ">=5.0.0"
+  },
+  "devDependencies": {
+    "webpack": "^5.99.0",
+    "webpack-cli": "^6.0.0"
+  }
+}

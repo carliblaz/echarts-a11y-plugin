@@ -1,0 +1,6 @@
+/**
+ * EChartsAccessibilityPlugin
+ * WCAG 2.1 AA keyboard navigation for Apache ECharts.
+ *
+ * @license MIT
+ */
