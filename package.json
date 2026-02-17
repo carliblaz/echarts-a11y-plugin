@@ -1,6 +1,6 @@
 {
   "name": "charts-a11y-plugin",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "WCAG 2.1 AA keyboard navigation and accessibility plugin for Apache ECharts",
   "main": "dist/echarts-a11y-plugin.umd.js",
   "files": [
