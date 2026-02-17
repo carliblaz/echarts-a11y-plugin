@@ -9,9 +9,12 @@
     "README.md"
   ],
   "scripts": {
-    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
-    "build": "npm run clean && webpack --config webpack.config.js",
-    "build:watch": "webpack --config webpack.config.js --watch"
+    "clean":      "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build":      "npm run clean && webpack --config webpack.config.js",
+    "build:watch":"webpack --config webpack.config.js --watch",
+    "test":       "node smoke-test.js",
+    "test:full":  "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "echarts",
@@ -27,6 +30,9 @@
     "echarts": ">=5.0.0"
   },
   "devDependencies": {
+    "vitest": "^2.0.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "jsdom": "^25.0.0",
     "webpack": "^5.99.0",
     "webpack-cli": "^6.0.0"
   }

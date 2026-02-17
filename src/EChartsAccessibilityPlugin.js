@@ -154,6 +154,14 @@ proto._usesDataset = function () {
   return Array.isArray(src) && src.length > 0;
 };
 
+// Returns true when any series uses seriesLayoutBy:'row'.
+// In that mode the dataset is transposed: each source row is a series,
+// each column (after the first) is a data point.
+proto._isRowLayout = function () {
+  const series = this._option().series || [];
+  return series.some(function (s) { return s.seriesLayoutBy === 'row'; });
+};
+
 proto._datasetSource = function () {
   const src = (this._option().dataset && this._option().dataset[0] && this._option().dataset[0].source) || [];
   if (Array.isArray(src) && src.length === 1 && Array.isArray(src[0]) && typeof src[0][0] === 'object') {
@@ -176,13 +184,25 @@ proto._encodeX = function (si) {
 
 proto._dataLength = function (si) {
   if (si === undefined) si = this.state.seriesIndex;
-  if (this._usesDataset()) return this._datasetSource().length;
+  if (this._usesDataset()) {
+    if (this._isRowLayout()) {
+      // Row 0 is the header row; data columns start at index 1
+      const src = this._datasetSource();
+      return src.length > 0 ? src[0].length - 1 : 0;
+    }
+    return this._datasetSource().length;
+  }
   return this._seriesDataInline(si).length;
 };
 
 proto._dataPoint = function (i, si) {
   if (si === undefined) si = this.state.seriesIndex;
   if (this._usesDataset()) {
+    if (this._isRowLayout()) {
+      // Source row (si + 1) is the series row; column (i + 1) skips the label column
+      const row = this._datasetSource()[si + 1];
+      return row != null ? row[i + 1] : null;
+    }
     const row  = this._datasetSource()[i];
     const yKey = this._encodeY(si);
     if (row == null) return null;
@@ -195,6 +215,12 @@ proto._dataPoint = function (i, si) {
 
 proto._categoryAt = function (i) {
   if (this._usesDataset()) {
+    if (this._isRowLayout()) {
+      // Row 0 holds category labels; column (i + 1) skips the series-name column
+      const src  = this._datasetSource();
+      const label = src.length > 0 ? src[0][i + 1] : null;
+      return label != null ? label : this._t('rowFallback', { index: i + 1 });
+    }
     const row  = this._datasetSource()[i];
     if (row == null) return this._t('rowFallback', { index: i + 1 });
     const xKey = this._encodeX(0) != null ? this._encodeX(0) : this._encodeX(this.state.seriesIndex);
@@ -225,6 +251,14 @@ proto._seriesCount = function () { return (this._option().series && this._option
 
 proto._legendNames = function () {
   if (this._usesDataset()) {
+    if (this._isRowLayout()) {
+      // In row layout, source[si+1][0] is the series name
+      const src = this._datasetSource();
+      return (this._option().series || []).map(function (s, i) {
+        var fromRow = src[i + 1] && src[i + 1][0];
+        return fromRow != null ? String(fromRow) : (s.name != null ? String(s.name) : this._t('seriesFallback', { index: i + 1 }));
+      }.bind(this));
+    }
     return (this._option().series || []).map(function (s, i) {
       return s.name != null ? String(s.name) : this._t('seriesFallback', { index: i + 1 });
     }.bind(this));
@@ -521,22 +555,32 @@ proto._showChart = function () {
 };
 
 proto._renderTable = function () {
-  var opt   = this._option();
-  var xName = (opt.xAxis && (opt.xAxis[0] ? opt.xAxis[0].name : opt.xAxis.name));
-  if (!xName && this._usesDataset()) {
-    var xKey = this._encodeX(0);
-    xName = xKey != null ? String(xKey) : this._t('categoryFallback');
-  }
-  xName = xName || this._t('categoryFallback');
+  var opt      = this._option();
+  var self     = this;
+  var series   = opt.series || [];
+  var names    = this._legendNames();
 
-  var self    = this;
-  var series  = opt.series || [];
-  var maxLen  = this._dataLength();
-  var html    = '<table class="echarts-data-table"><thead><tr>';
+  // x-axis column header
+  var xName;
+  if (this._usesDataset() && this._isRowLayout()) {
+    // source[0][0] is the label for the category column (e.g. "ure")
+    var src0 = this._datasetSource();
+    xName = (src0.length > 0 && src0[0][0] != null) ? String(src0[0][0]) : this._t('categoryFallback');
+  } else {
+    xName = (opt.xAxis && (opt.xAxis[0] ? opt.xAxis[0].name : opt.xAxis.name));
+    if (!xName && this._usesDataset()) {
+      var xKey = this._encodeX(0);
+      xName = xKey != null ? String(xKey) : this._t('categoryFallback');
+    }
+    xName = xName || this._t('categoryFallback');
+  }
+
+  var maxLen = this._dataLength();
+  var html   = '<table class="echarts-data-table"><thead><tr>';
 
   html += '<th scope="col">' + xName + '</th>';
-  series.forEach(function (s, si) {
-    html += '<th scope="col">' + (s.name != null ? s.name : self._t('seriesFallback', { index: si + 1 })) + '</th>';
+  series.forEach(function (_, si) {
+    html += '<th scope="col">' + (names[si] || self._t('seriesFallback', { index: si + 1 })) + '</th>';
   });
   html += '</tr></thead><tbody>';
 
