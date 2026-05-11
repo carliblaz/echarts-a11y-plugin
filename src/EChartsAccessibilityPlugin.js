@@ -190,7 +190,7 @@ proto._dataLength = function (si) {
       const src = this._datasetSource();
       return src.length > 0 ? src[0].length - 1 : 0;
     }
-    return this._datasetSource().length;
+    return this._datasetSource().length - (this._hasHeaderRow() ? 1 : 0);
   }
   return this._seriesDataInline(si).length;
 };
@@ -201,16 +201,48 @@ proto._dataPoint = function (i, si) {
     if (this._isRowLayout()) {
       // Source row (si + 1) is the series row; column (i + 1) skips the label column
       const row = this._datasetSource()[si + 1];
-      return row != null ? row[i + 1] : null;
+      if (row == null) return null;
+      const v = row[i + 1];
+      return v !== undefined ? v : null;
     }
-    const row  = this._datasetSource()[i];
+    // Column-layout: skip a header row if present
+    const src = this._datasetSource();
+    const offset = this._hasHeaderRow() ? 1 : 0;
+    const row  = src[i + offset];
     const yKey = this._encodeY(si);
     if (row == null) return null;
-    if (Array.isArray(row)) return yKey != null ? row[yKey] : row[1];
+    if (Array.isArray(row)) {
+      // With encode → use that column. Without encode → series N reads column N+1
+      // (column 0 is the category). Previous behaviour of hard-coding row[1]
+      // showed series-0 values in every series column.
+      return yKey != null ? row[yKey] : row[si + 1];
+    }
     return yKey != null ? row[yKey] : null;
   }
   const d = this._seriesDataInline(si)[i];
   return d !== undefined ? d : null;
+};
+
+// True when the first dataset row looks like a header — all strings, and at
+// least one of the remaining rows has a numeric value in the same column.
+// ECharts treats this header row as metadata, not data, so we should too.
+proto._hasHeaderRow = function () {
+  const src = this._datasetSource();
+  if (!Array.isArray(src) || src.length < 2) return false;
+  const first = src[0];
+  if (!Array.isArray(first) || first.length === 0) return false;
+  const allStrings = first.every(function (c) { return typeof c === 'string'; });
+  if (!allStrings) return false;
+  // Make sure at least one later row has a non-string in some column —
+  // otherwise it's a legitimate all-string table, not a header.
+  for (var r = 1; r < src.length; r++) {
+    const row = src[r];
+    if (!Array.isArray(row)) continue;
+    for (var c = 0; c < row.length; c++) {
+      if (typeof row[c] === 'number') return true;
+    }
+  }
+  return false;
 };
 
 proto._categoryAt = function (i) {
@@ -221,7 +253,9 @@ proto._categoryAt = function (i) {
       const label = src.length > 0 ? src[0][i + 1] : null;
       return label != null ? label : this._t('rowFallback', { index: i + 1 });
     }
-    const row  = this._datasetSource()[i];
+    const src = this._datasetSource();
+    const offset = this._hasHeaderRow() ? 1 : 0;
+    const row  = src[i + offset];
     if (row == null) return this._t('rowFallback', { index: i + 1 });
     const xKey = this._encodeX(0) != null ? this._encodeX(0) : this._encodeX(this.state.seriesIndex);
     if (Array.isArray(row)) return xKey != null ? row[xKey] : row[0];
@@ -229,7 +263,15 @@ proto._categoryAt = function (i) {
   }
   const opt   = this._option();
   const xData = (opt.xAxis && (opt.xAxis[0] ? opt.xAxis[0].data : opt.xAxis.data)) || [];
-  return xData[i] != null ? xData[i] : this._t('rowFallback', { index: i + 1 });
+  if (xData[i] != null) return xData[i];
+  // Fall back to deriving a label from the data point itself —
+  // {name, value} (pie) or [x, y] (scatter) carry their own category.
+  const d = this._seriesDataInline()[i];
+  if (d != null && typeof d === 'object') {
+    if (!Array.isArray(d) && d.name != null) return d.name;
+    if (Array.isArray(d) && d[0] != null)    return d[0];
+  }
+  return this._t('rowFallback', { index: i + 1 });
 };
 
 proto._seriesDataInline = function (si) {
@@ -265,7 +307,13 @@ proto._legendNames = function () {
   }
   const opt = this._option();
   const raw = (opt.legend && (opt.legend[0] ? opt.legend[0].data : opt.legend.data)) || [];
-  return raw.map(function (l) { return typeof l === 'object' ? l.name : l; }).filter(Boolean);
+  if (raw.length) {
+    return raw.map(function (l) { return typeof l === 'object' ? l.name : l; }).filter(Boolean);
+  }
+  // No explicit legend.data — fall back to each series.name
+  return (opt.series || []).map(function (s, i) {
+    return s && s.name != null ? String(s.name) : this._t('seriesFallback', { index: i + 1 });
+  }.bind(this));
 };
 
 // ── Keyboard handler ─────────────────────────────────────────────────────────
@@ -650,4 +698,3 @@ EChartsAccessibilityPlugin.registerLocale = function (name, strings) {
 };
 
 export default EChartsAccessibilityPlugin;
-
