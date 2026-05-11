@@ -567,7 +567,12 @@ proto._initTableView = function () {
   this.container.parentNode.insertBefore(wrapper, this.container.nextSibling);
 
   this._tableWrapper = wrapper;
-  this._tableBody    = document.getElementById(tableBodyId);
+  // Scope the lookup to the wrapper we just created. Using
+  // document.getElementById here is fragile: if any other element on the
+  // host page (or another chart instance) shares the same id, that one
+  // wins and _tableBody points at the wrong node — or at nothing once
+  // that node is removed, causing "Cannot set properties of undefined".
+  this._tableBody    = wrapper.querySelector('#' + tableBodyId);
 
   wrapper.querySelector('#' + backBtnId).addEventListener('click', function () {
     self._showChart();
@@ -640,6 +645,14 @@ proto._renderTableTitle = function (opt) {
 };
 
 proto._renderTable = function () {
+  // Defensive: if the wrapper or body went missing (e.g. removed by host
+  // page) we'd otherwise crash with "Cannot set properties of undefined".
+  if (!this._tableBody) {
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn('[echarts-a11y] table body not found — was the wrapper removed from the DOM?');
+    }
+    return;
+  }
   var opt      = this._option();
   var self     = this;
   var series   = opt.series || [];
