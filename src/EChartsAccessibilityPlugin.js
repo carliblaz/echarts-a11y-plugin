@@ -558,6 +558,7 @@ proto._initTableView = function () {
   wrapper.style.display = 'none';
   wrapper.innerHTML =
     '<div class="table-header">' +
+      '<h2 class="table-title" id="' + this.opts.tableWrapperId + '-title" style="margin:0;font-size:1.1rem;display:none"></h2>' +
       '<p>' + this._t('tableHint') + '</p>' +
       '<button id="' + backBtnId + '">' + this._t('backButton') + '</button>' +
     '</div>' +
@@ -602,11 +603,51 @@ proto._showChart = function () {
   this._announce(this._t('chartView'));
 };
 
+// Picks the chart's main title (and optional subtitle) out of the option and
+// writes it into the table header. Falls back to hiding the heading when no
+// usable title is found, so the existing layout stays clean.
+proto._renderTableTitle = function (opt) {
+  if (!this._tableWrapper) return;
+  var headingId = this.opts.tableWrapperId + '-title';
+  var h = this._tableWrapper.querySelector('#' + headingId);
+  if (!h) return;
+
+  var titles = opt && opt.title
+    ? (Array.isArray(opt.title) ? opt.title : [opt.title])
+    : [];
+  var main = null, sub = null;
+  for (var i = 0; i < titles.length; i++) {
+    var t = titles[i];
+    if (!t || !t.text) continue;
+    if (main === null) { main = String(t.text); }
+    else if (sub === null) { sub = String(t.text); break; }
+  }
+
+  if (!main) {
+    h.style.display = 'none';
+    h.textContent = '';
+    this._tableWrapper.removeAttribute('aria-labelledby');
+    var tbl = this._tableBody && this._tableBody.querySelector('table');
+    if (tbl) tbl.removeAttribute('aria-labelledby');
+    return;
+  }
+
+  h.textContent = sub ? main + ' \u2014 ' + sub : main;
+  h.style.display = '';
+  // Use the heading as the accessible name of both the region and the table
+  // (overrides the generic aria-label set in _initTableView).
+  this._tableWrapper.setAttribute('aria-labelledby', headingId);
+};
+
 proto._renderTable = function () {
   var opt      = this._option();
   var self     = this;
   var series   = opt.series || [];
   var names    = this._legendNames();
+
+  // Refresh the heading from the current chart title (re-read every render
+  // so changes to the option after init are reflected).
+  this._renderTableTitle(opt);
 
   // x-axis column header
   var xName;
@@ -643,7 +684,18 @@ proto._renderTable = function () {
   html += '</tbody></table>';
   this._tableBody.innerHTML = html;
   var table = this._tableBody.querySelector('table');
-  if (table) table.setAttribute('tabindex', '0');
+  if (table) {
+    table.setAttribute('tabindex', '0');
+    // If a title heading is present, label the table with it too so screen
+    // readers announce the chart title when the user tabs into the table.
+    var headingId = this.opts.tableWrapperId + '-title';
+    var h = this._tableWrapper && this._tableWrapper.querySelector('#' + headingId);
+    if (h && h.textContent) {
+      table.setAttribute('aria-labelledby', headingId);
+    } else {
+      table.removeAttribute('aria-labelledby');
+    }
+  }
 };
 
 // ── Announcements ─────────────────────────────────────────────────────────────
